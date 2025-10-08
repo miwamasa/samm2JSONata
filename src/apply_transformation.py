@@ -70,7 +70,14 @@ def apply_transformation_manually(source_data, transformation_map):
         Transformed data
     """
     def evaluate_path(data, path):
-        """Evaluate a JSONata path like $.pcf.declaredUnitOfMeasurement"""
+        """
+        Evaluate a JSONata path.
+
+        Supports:
+        - $.field - simple property access
+        - $.array[0].field - array element access
+        - $.array.field - map over all array elements (returns array)
+        """
         if not path.startswith("$."):
             return path
 
@@ -81,11 +88,51 @@ def apply_transformation_manually(source_data, transformation_map):
         parts = path.split(".")
         current = data
 
-        for part in parts:
-            if isinstance(current, dict) and part in current:
-                current = current[part]
+        for i, part in enumerate(parts):
+            # Check if this part contains an array index like "array[0]"
+            if "[" in part and "]" in part:
+                # Extract the property name and index
+                prop_name = part[:part.index("[")]
+                index_str = part[part.index("[") + 1:part.index("]")]
+
+                try:
+                    index = int(index_str)
+                    # Navigate to the property first
+                    if isinstance(current, dict) and prop_name in current:
+                        current = current[prop_name]
+                        # Then access the array element
+                        if isinstance(current, list) and 0 <= index < len(current):
+                            current = current[index]
+                        else:
+                            return None
+                    else:
+                        return None
+                except (ValueError, IndexError):
+                    return None
             else:
-                return None
+                # Normal property access
+                if isinstance(current, dict) and part in current:
+                    current = current[part]
+                elif isinstance(current, list):
+                    # Array mapping: apply remaining path to each element
+                    remaining_parts = parts[i:]
+                    remaining_path = ".".join(remaining_parts)
+
+                    result = []
+                    for item in current:
+                        item_current = item
+                        for sub_part in remaining_parts:
+                            if isinstance(item_current, dict) and sub_part in item_current:
+                                item_current = item_current[sub_part]
+                            else:
+                                item_current = None
+                                break
+                        if item_current is not None:
+                            result.append(item_current)
+
+                    return result if result else None
+                else:
+                    return None
 
         return current
 

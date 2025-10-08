@@ -125,6 +125,27 @@ class Transformer:
         else:
             source_path = source_prop.payload_name or source_prop.local_name
 
+        # Handle array elements based on source and target types
+        if source_prop.is_array_element and source_prop.parent_property:
+            # Determine if we need array indexing
+            # Case 1: source is array element, target is also array element -> map all elements
+            # Case 2: source is array element, target is NOT array element -> take first element [0]
+
+            if not target_prop.is_array_element:
+                # Array to single: take first element
+                parts = source_path.split(".")
+                parent_name = source_prop.parent_property
+
+                # Find where the parent property is in the path
+                for i, part in enumerate(parts):
+                    if part == parent_name:
+                        # Insert [0] after this part
+                        parts[i] = f"{part}[0]"
+                        break
+
+                source_path = ".".join(parts)
+            # else: both are array elements, map entire arrays (no [0] needed)
+
         # Base expression
         base_expr = f"$.{source_path}"
 
@@ -144,13 +165,22 @@ class Transformer:
                 return base_expr
 
         elif transformation_type == "structure_transform":
-            # For now, return base expression with a note
-            # More complex structure transforms would be implemented here
-            logger.info(
-                f"Structure transform needed for {source_prop.local_name}, "
-                "using direct mapping for now"
-            )
-            return base_expr
+            # Handle structure transformations including array conversions
+            if source_prop.is_array_element and not target_prop.is_array_element:
+                # Already handled above with [0]
+                return base_expr
+            elif not source_prop.is_array_element and target_prop.is_array_element:
+                # Single to array: wrap in array
+                logger.info(
+                    f"Wrapping single value in array for {source_prop.local_name} -> {target_prop.local_name}"
+                )
+                return f"[{base_expr}]"
+            else:
+                logger.info(
+                    f"Structure transform needed for {source_prop.local_name}, "
+                    "using direct mapping for now"
+                )
+                return base_expr
 
         return base_expr
 

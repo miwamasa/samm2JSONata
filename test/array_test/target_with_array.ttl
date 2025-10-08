@@ -1,0 +1,33 @@
+@prefix : <urn:samm:test:1.0.0#> .
+@prefix samm: <urn:samm:org.eclipse.esmf.samm:meta-model:2.1.0#> .
+@prefix samm-c: <urn:samm:org.eclipse.esmf.samm:characteristic:2.1.0#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+:TargetAspect a samm:Aspect ;
+   samm:preferredName "Target Aspect"@en ;
+   samm:description "Target aspect with arrays"@en ;
+   samm:properties ( :id :records ) .
+
+:id a samm:Property ;
+   samm:preferredName "ID"@en ;
+   samm:characteristic samm-c:Text .
+
+:records a samm:Property ;
+   samm:preferredName "Records"@en ;
+   samm:characteristic :RecordCollection .
+
+:RecordCollection a samm-c:Collection ;
+   samm:preferredName "Record Collection"@en ;
+   samm:dataType :RecordEntity .
+
+:RecordEntity a samm:Entity ;
+   samm:preferredName "Record Entity"@en ;
+   samm:properties ( :recordName :recordValue ) .
+
+:recordName a samm:Property ;
+   samm:preferredName "Record Name"@en ;
+   samm:characteristic samm-c:Text .
+
+:recordValue a samm:Property ;
+   samm:preferredName "Record Value"@en ;
+   samm:characteristic samm-c:Text .

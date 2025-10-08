@@ -1,0 +1,75 @@
+{
+  "metadata": {
+    "generator": "SAMM-to-JSONata Generator v1.0",
+    "generated_at": "2025-10-08T20:50:12.924876",
+    "source_model": "source_with_array.ttl",
+    "target_model": "target_with_array.ttl",
+    "source_aspect": "Source Aspect",
+    "target_aspect": "Target Aspect",
+    "mapping_confidence_avg": 0.9,
+    "total_mappings": 3,
+    "source_properties_count": 4,
+    "target_properties_count": 4
+  },
+  "mappings": [
+    {
+      "source_property": "id",
+      "source_preferred_name": "ID",
+      "target_property": "id",
+      "target_preferred_name": "ID",
+      "mapping_method": "characteristic_match",
+      "confidence": 0.9,
+      "transformation_type": "direct",
+      "jsonata_fragment": "$.id"
+    },
+    {
+      "source_property": "itemName",
+      "source_preferred_name": "Item Name",
+      "target_property": "recordName",
+      "target_preferred_name": "Record Name",
+      "mapping_method": "characteristic_match",
+      "confidence": 0.9,
+      "transformation_type": "direct",
+      "jsonata_fragment": "$.items.itemName"
+    },
+    {
+      "source_property": "itemValue",
+      "source_preferred_name": "Item Value",
+      "target_property": "recordValue",
+      "target_preferred_name": "Record Value",
+      "mapping_method": "characteristic_match",
+      "confidence": 0.9,
+      "transformation_type": "direct",
+      "jsonata_fragment": "$.items.itemValue"
+    }
+  ],
+  "complete_transformation": {
+    "id": "$.id",
+    "records": {
+      "recordName": "$.items.itemName",
+      "recordValue": "$.items.itemValue"
+    }
+  },
+  "unmapped_properties": {
+    "source": [
+      "items"
+    ],
+    "target": [
+      "records"
+    ]
+  },
+  "warnings": [
+    {
+      "type": "unmapped_source",
+      "count": "1",
+      "message": "1 source properties could not be mapped",
+      "properties": "items"
+    },
+    {
+      "type": "unmapped_target",
+      "count": "1",
+      "message": "1 target properties were not mapped to",
+      "properties": "records"
+    }
+  ]
+}

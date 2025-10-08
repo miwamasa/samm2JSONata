@@ -1,0 +1,15 @@
+{
+  "id": "test-123",
+  "records": {
+    "recordName": [
+      "Item 1",
+      "Item 2",
+      "Item 3"
+    ],
+    "recordValue": [
+      "Value 1",
+      "Value 2",
+      "Value 3"
+    ]
+  }
+}

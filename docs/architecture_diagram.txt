@@ -1,0 +1,301 @@
+# システムアーキテクチャ図
+
+## 全体構成
+
+┌────────────────────────────────────────────────────────────────┐
+│                        User Interface                          │
+│                     (CLI / generator.py)                       │
+└────────────────────────────────────────────────────────────────┘
+                                │
+                ┌───────────────┴───────────────┐
+                │                               │
+                ▼                               ▼
+    ┌──────────────────┐            ┌──────────────────┐
+    │   Source.ttl     │            │   Target.ttl     │
+    │  (SAMM Model)    │            │  (SAMM Model)    │
+    └──────────────────┘            └──────────────────┘
+                │                               │
+                └───────────────┬───────────────┘
+                                ▼
+                    ┌───────────────────────┐
+                    │    Parser Module      │
+                    │   (parser.py)         │
+                    │                       │
+                    │ - Parse TTL           │
+                    │ - Extract properties  │
+                    │ - Build hierarchy     │
+                    └───────────────────────┘
+                                │
+                    ┌───────────┴───────────┐
+                    │                       │
+                    ▼                       ▼
+        ┌──────────────────┐    ┌──────────────────┐
+        │  Source Props    │    │  Target Props    │
+        │  (96 properties) │    │  (96 properties) │
+        └──────────────────┘    └──────────────────┘
+                    │                       │
+                    └───────────┬───────────┘
+                                ▼
+                    ┌───────────────────────┐
+                    │   Matcher Module      │
+                    │   (matcher.py)        │
+                    │                       │
+                    │ - Characteristic match│
+                    │ - PreferredName match │
+                    │ - Property URI match  │
+                    │ - Calculate confidence│
+                    └───────────────────────┘
+                                │
+                                ▼
+                    ┌───────────────────────┐
+                    │   93 Matches          │
+                    │   (confidence: 0.90)  │
+                    └───────────────────────┘
+                                │
+                                ▼
+                    ┌───────────────────────┐
+                    │  Transformer Module   │
+                    │  (transformer.py)     │
+                    │                       │
+                    │ - Detect transform    │
+                    │ - Generate JSONata    │
+                    │ - Build nested struct │
+                    └───────────────────────┘
+                                │
+                ┌───────────────┴───────────────┐
+                │                               │
+                ▼                               ▼
+    ┌──────────────────────┐        ┌─────────────────────┐
+    │ mapping_result.json  │        │transformation.jsonata│
+    │                      │        │                      │
+    │ - Metadata           │        │ {                    │
+    │ - 93 mappings        │        │   "id": $.id,        │
+    │ - Warnings           │        │   "pcf": {           │
+    │ - Statistics         │        │     ...              │
+    └──────────────────────┘        └─────────────────────┘
+                                                │
+                                                ▼
+                                    ┌─────────────────────┐
+                                    │  apply_transformation│
+                                    │  (Python or JSONata) │
+                                    └─────────────────────┘
+                                                │
+                ┌───────────────────────────────┴────────┐
+                │                                        │
+                ▼                                        ▼
+    ┌──────────────────┐                    ┌──────────────────┐
+    │   Source.json    │                    │ Transformed.json │
+    │   (Input data)   │                    │  (Output data)   │
+    └──────────────────┘                    └──────────────────┘
+
+
+## データフロー詳細
+
+┌─────────────────────────────────────────────────────────────────┐
+│ Phase 1: Parsing                                                │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  TTL File → RDFLib Graph → Aspect Extraction                   │
+│                ↓                                                │
+│          Find Aspect URI                                        │
+│                ↓                                                │
+│    Extract Top-level Properties (22)                            │
+│                ↓                                                │
+│    For each property with Entity characteristic:                │
+│      ↓                                                          │
+│      Parse Entity → Extract nested properties (74)              │
+│        ↓                                                        │
+│        Calculate json_path (e.g., "pcf.declaredUnit...")       │
+│          ↓                                                      │
+│          Recursive: Check for deeper nesting                    │
+│                                                                 │
+│  Result: 96 properties with full json_path                      │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ Phase 2: Matching                                               │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  For each source property:                                      │
+│    ↓                                                            │
+│    best_match = None                                            │
+│    best_confidence = 0.0                                        │
+│      ↓                                                          │
+│      For each target property (not yet matched):                │
+│        ↓                                                        │
+│        Try matching methods in order:                           │
+│          1. Characteristic match? → confidence: 0.9             │
+│          2. PreferredName match?  → confidence: 0.8             │
+│          3. Property URI match?   → confidence: 0.7             │
+│            ↓                                                    │
+│            If confidence > best_confidence:                     │
+│              best_match = target                                │
+│              best_confidence = confidence                       │
+│      ↓                                                          │
+│      If best_confidence >= threshold (0.6):                     │
+│        Add to matches                                           │
+│        Mark target as matched                                   │
+│                                                                 │
+│  Result: 93 matches (96.9% success rate)                        │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ Phase 3: Transformation                                         │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  For each match:                                                │
+│    ↓                                                            │
+│    Determine transformation type:                               │
+│      - Direct (same type)                                       │
+│      - Type cast (different types)                              │
+│      - Structure transform (collection change)                  │
+│        ↓                                                        │
+│        Generate JSONata expression:                             │
+│          Direct: "$.pcf.value"                                  │
+│          Cast:   "$number($.pcf.value)"                         │
+│          Struct: Special handling                               │
+│    ↓                                                            │
+│    Create PropertyMapping object                                │
+│      ↓                                                          │
+│      Build nested structure:                                    │
+│        {                                                        │
+│          "pcf": {                                               │
+│            "dataQualityRating": {                               │
+│              "technologicalDQR": "$.pcf.dataQualityRating..."  │
+│            }                                                    │
+│          }                                                      │
+│        }                                                        │
+│                                                                 │
+│  Result: Complete JSONata transformation                        │
+└─────────────────────────────────────────────────────────────────┘
+
+
+## コンポーネント間の依存関係
+
+                    models.py
+                       ▲
+                       │ uses
+        ┌──────────────┼──────────────┐
+        │              │              │
+        │              │              │
+    parser.py    matcher.py    transformer.py
+        ▲              ▲              ▲
+        │              │              │
+        └──────────────┴──────────────┘
+                       │
+                       │ orchestrates
+                       │
+                 generator.py
+                       ▲
+                       │ executes
+                       │
+                apply_transformation.py
+
+
+## プロパティ階層の例
+
+SAMM Model Structure:
+┌─────────────────────┐
+│      :Pcf           │  Aspect
+│   (Aspect)          │
+└─────────────────────┘
+          │
+          ├─ :id              (Property, level 0)
+          │  json_path: "id"
+          │
+          ├─ :pcf             (Property → SingleEntity, level 0)
+          │  json_path: "pcf"
+          │    │
+          │    └─ :PcfEntity  (Entity)
+          │         │
+          │         ├─ :declaredUnitOfMeasurement  (level 1)
+          │         │  json_path: "pcf.declaredUnitOfMeasurement"
+          │         │
+          │         ├─ :dqi              (Property → SingleEntity, level 1)
+          │         │  json_path: "pcf.dataQualityRating"
+          │         │    │
+          │         │    └─ :DataQualityEntity  (Entity)
+          │         │         │
+          │         │         ├─ :technologicalDQR  (level 2)
+          │         │         │  json_path: "pcf.dataQualityRating.technologicalDQR"
+          │         │         │
+          │         │         ├─ :temporalDQR       (level 2)
+          │         │         │  json_path: "pcf.dataQualityRating.temporalDQR"
+          │         │         │
+          │         │         └─ :geographicalDQR   (level 2)
+          │         │            json_path: "pcf.dataQualityRating.geographicalDQR"
+          │         │
+          │         └─ :pcfExcludingBiogenicUptake  (level 1)
+          │            json_path: "pcf.pcfExcludingBiogenicUptake"
+          │
+          └─ :comment         (Property, level 0)
+             json_path: "comment"
+
+Total: 22 top-level + 74 nested = 96 properties
+
+
+## マッチングアルゴリズムのフローチャート
+
+Start
+  │
+  ▼
+For each source property
+  │
+  ├─ Initialize best_match = None
+  │  Initialize best_confidence = 0.0
+  │
+  ▼
+  For each target property
+    │
+    ├─ Already matched? ──Yes──→ Skip
+    │                │
+    │               No
+    │                │
+    │                ▼
+    │    Try Characteristic Match
+    │                │
+    │         ┌──────┴──────┐
+    │        Yes            No
+    │         │              │
+    │    confidence=0.9      ▼
+    │         │       Try PreferredName Match
+    │         │              │
+    │         │       ┌──────┴──────┐
+    │         │      Yes            No
+    │         │       │              │
+    │         │  confidence=0.8      ▼
+    │         │       │      Try Property URI Match
+    │         │       │              │
+    │         │       │       ┌──────┴──────┐
+    │         │       │      Yes            No
+    │         │       │       │              │
+    │         │       │  confidence=0.7      │
+    │         │       │       │         No match
+    │         └───────┴───────┘              │
+    │                 │                      │
+    │                 ▼                      │
+    │    confidence > best_confidence? ──No──┤
+    │                 │                      │
+    │                Yes                     │
+    │                 │                      │
+    │        Update best_match               │
+    │        Update best_confidence          │
+    │                 │                      │
+    │                 └──────────────────────┘
+    ▼
+  End target loop
+    │
+    ▼
+  best_confidence >= threshold (0.6)?
+    │
+    ├─ Yes → Add match
+    │         Mark target as matched
+    │
+    └─ No  → No match for this source
+    │
+    ▼
+End source loop
+  │
+  ▼
+Return matches
+

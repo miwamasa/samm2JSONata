@@ -21,6 +21,10 @@ class SAMMProperty(BaseModel):
     json_path: Optional[str] = None
     # Parent property name (for nested properties)
     parent_property: Optional[str] = None
+    # Whether this property is a Collection (array in JSON)
+    is_collection: bool = False
+    # Whether this property is inside a collection element
+    is_array_element: bool = False
 
     def __hash__(self):
         return hash(self.uri)

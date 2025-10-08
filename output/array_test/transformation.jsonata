@@ -1,0 +1,12 @@
+/* Generated JSONata Transformation */
+/* Source: source_with_array.ttl */
+/* Target: target_with_array.ttl */
+/* Generated: 2025-10-08T20:50:12.924876 */
+
+{
+  "id": "$.id",
+  "records": {
+    "recordName": "$.items.itemName",
+    "recordValue": "$.items.itemValue"
+  }
+}

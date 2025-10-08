@@ -1,0 +1,33 @@
+@prefix : <urn:samm:test:1.0.0#> .
+@prefix samm: <urn:samm:org.eclipse.esmf.samm:meta-model:2.1.0#> .
+@prefix samm-c: <urn:samm:org.eclipse.esmf.samm:characteristic:2.1.0#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+:SourceAspect a samm:Aspect ;
+   samm:preferredName "Source Aspect"@en ;
+   samm:description "Test aspect with arrays"@en ;
+   samm:properties ( :id :items ) .
+
+:id a samm:Property ;
+   samm:preferredName "ID"@en ;
+   samm:characteristic samm-c:Text .
+
+:items a samm:Property ;
+   samm:preferredName "Items"@en ;
+   samm:characteristic :ItemCollection .
+
+:ItemCollection a samm-c:Collection ;
+   samm:preferredName "Item Collection"@en ;
+   samm:dataType :ItemEntity .
+
+:ItemEntity a samm:Entity ;
+   samm:preferredName "Item Entity"@en ;
+   samm:properties ( :itemName :itemValue ) .
+
+:itemName a samm:Property ;
+   samm:preferredName "Item Name"@en ;
+   samm:characteristic samm-c:Text .
+
+:itemValue a samm:Property ;
+   samm:preferredName "Item Value"@en ;
+   samm:characteristic samm-c:Text .

@@ -93,7 +93,7 @@ class SAMMParser:
                     # Extract entity properties as nested properties
                     parent_path = prop.payload_name or prop.local_name
                     nested_props = self._extract_nested_properties(
-                        entity, parent_path, prop.local_name
+                        entity, parent_path, prop.local_name, prop.is_collection
                     )
                     all_properties.extend(nested_props)
 
@@ -119,6 +119,9 @@ class SAMMParser:
         characteristic = self.graph.value(property_uri, SAMM.characteristic)
         if characteristic:
             prop.characteristic = str(characteristic)
+
+            # Check if this is a collection
+            prop.is_collection = self._is_collection_characteristic(characteristic)
 
         # Get data type (might be on the characteristic or property itself)
         data_type = self.graph.value(property_uri, SAMM.dataType)
@@ -190,11 +193,30 @@ class SAMMParser:
 
         return properties
 
+    def _is_collection_characteristic(
+        self, characteristic_uri: URIRef
+    ) -> bool:
+        """Check if a characteristic is a Collection type."""
+        # Get the type of the characteristic
+        char_type = self.graph.value(characteristic_uri, RDF.type)
+        if char_type:
+            # Check if it's a Collection or its subtypes (Set, List, SortedSet, TimeSeries)
+            collection_types = [
+                SAMM_C.Collection,
+                SAMM_C.Set,
+                SAMM_C.List,
+                SAMM_C.SortedSet,
+                SAMM_C.TimeSeries,
+            ]
+            if char_type in collection_types:
+                return True
+        return False
+
     def _get_entity_from_characteristic(
         self, characteristic_uri: URIRef
     ) -> Optional[URIRef]:
         """Get the entity URI from a characteristic if it's a SingleEntity or collection."""
-        # Check if it's a SingleEntity
+        # Check if it's a SingleEntity or Collection
         entity = self.graph.value(characteristic_uri, SAMM.dataType)
         if entity:
             # Check if this is an entity (not a primitive type like xsd:string)
@@ -231,7 +253,11 @@ class SAMMParser:
         return uri_str
 
     def _extract_nested_properties(
-        self, entity: SAMMEntity, parent_path: str, parent_name: str
+        self,
+        entity: SAMMEntity,
+        parent_path: str,
+        parent_name: str,
+        parent_is_collection: bool = False,
     ) -> List[SAMMProperty]:
         """
         Extract properties from an entity as nested properties.
@@ -240,6 +266,7 @@ class SAMMParser:
             entity: The entity containing the properties
             parent_path: The JSON path to the parent property (e.g., "pcf")
             parent_name: The name of the parent property
+            parent_is_collection: Whether the parent property is a collection
 
         Returns:
             List of properties with json_path and parent_property set
@@ -262,6 +289,8 @@ class SAMMParser:
                 # Set the JSON path
                 json_path=f"{parent_path}.{entity_prop.payload_name or entity_prop.local_name}",
                 parent_property=parent_name,
+                is_collection=entity_prop.is_collection,
+                is_array_element=parent_is_collection,  # Mark if inside a collection
             )
             nested_properties.append(nested_prop)
 
@@ -276,6 +305,7 @@ class SAMMParser:
                         nested_entity,
                         nested_prop.json_path,
                         nested_prop.local_name,
+                        nested_prop.is_collection,  # Pass collection flag
                     )
                     nested_properties.extend(deeper_nested_props)
 
